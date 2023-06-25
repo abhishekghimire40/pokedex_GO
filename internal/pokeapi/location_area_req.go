@@ -63,3 +63,56 @@ func (c *Client) ListLocationAreas(pageURL *string) (LocationAreasResp, error) {
 
 	return locationAreasResp, nil
 }
+
+func (c *Client) GetLocationArea(locationAreaName string) (LocationArea, error) {
+	endpoint := "/location-area/" + locationAreaName
+	fullURL := baseURL + endpoint
+
+	// check the cache
+	data, ok := c.cache.Get(fullURL)
+	if ok {
+		// cache hit
+		fmt.Println("cache hit!")
+		// unmarshall the json response into a struct
+		locationArea := LocationArea{}
+		err := json.Unmarshal(data, &locationArea)
+		if err != nil {
+			return LocationArea{}, err
+		}
+		return locationArea, nil
+	}
+	// cache miss
+	fmt.Println("cache miss")
+	// create a new http request
+	req, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		return LocationArea{}, nil
+	}
+	// execute the request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return LocationArea{}, nil
+	}
+	// close the response just before returning from the function
+	defer resp.Body.Close()
+	// check the status code
+	if resp.StatusCode > 399 {
+		return LocationArea{}, fmt.Errorf("bad status code: %v", resp.StatusCode)
+	}
+	// read all data
+	data, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return LocationArea{}, err
+	}
+	// unmarshall the json response into a struct
+	locationArea := LocationArea{}
+	err = json.Unmarshal(data, &locationArea)
+	if err != nil {
+		return LocationArea{}, err
+	}
+
+	// add data to cache
+	c.cache.Add(fullURL, data)
+
+	return locationArea, nil
+}
